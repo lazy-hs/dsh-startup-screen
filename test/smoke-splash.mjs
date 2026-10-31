@@ -474,6 +474,120 @@ console.log('\n[12] 卡死防线与重播隔离（外部审查发现的坑）')
   check('audio.confirm 只定义一次', (src.match(/confirm: function \(\)/g) || []).length === 1, String((src.match(/confirm: function \(\)/g) || []).length))
 }
 
+console.log('\n[13] 立即预览（replay）必须真的重挂一次运行时')
+{
+  const r = run(true)
+  const scriptsOf = (h) => h.children.filter((c) => c && String(c.tagName).toUpperCase() === 'SCRIPT')
+  const before = scriptsOf(r.head).length
+  const rootBefore = r.root
+  const bodyBefore = r.sandbox.document.body
+
+  check('[前置] 首轮已经暴露 replay', typeof r.windowStub.__DSH_STARTUP_API__.replay === 'function')
+
+  /* 记录一次 appendChild 调用，判断 replay 到底有没有去挂脚本 */
+  const appended = []
+  const headEl = r.sandbox.document.head
+  const origAppend = headEl.appendChild.bind(headEl)
+  headEl.appendChild = (c) => { appended.push(c && c.tagName); return origAppend(c) }
+
+  let err = null
+  try { r.windowStub.__DSH_STARTUP_API__.replay() } catch (e) { err = e }
+
+  check('replay 不抛异常', err === null, err && err.message)
+  check('replay 真的调用了 head.appendChild', appended.length > 0, 'appendChild 调用次数 ' + appended.length)
+  const after = scriptsOf(r.head)
+  check('replay 追加了新的 <script>', after.length === before + 1, before + ' -> ' + after.length)
+  const last = after[after.length - 1]
+  check('新脚本指向 /dsh-startup/splash.js', !!last && String(last.src || '').indexOf('/dsh-startup/splash.js') === 0, last && last.src)
+  check('带时间戳绕缓存（否则浏览器复用旧实例）', !!last && /splash\.js\?t=\d+/.test(String(last.src)), last && last.src)
+  check('清掉了 __DSH_STARTUP_LOADED__（新脚本才会执行）', r.windowStub.__DSH_STARTUP_LOADED__ === false, String(r.windowStub.__DSH_STARTUP_LOADED__))
+  check('清掉了 SKIP 标记', r.windowStub.__DSH_STARTUP_SKIP__ === false, String(r.windowStub.__DSH_STARTUP_SKIP__))
+  check('旧根节点已从 body 摘下', bodyBefore.children.indexOf(rootBefore) === -1)
+  check('滚动锁已解开（新实例会重新锁）', !r.sandbox.document.documentElement.classList.contains('dsu-lock') || r.sandbox.document.documentElement.classList.contains('dsu-lock') === false, r.sandbox.document.documentElement._cls)
+
+  /* 再按一次：应该继续正常追加，而不是第二次就哑火 */
+  let err2 = null
+  try { r.windowStub.__DSH_STARTUP_API__.replay() } catch (e) { err2 = e }
+  check('连续点两次也不抛异常', err2 === null, err2 && err2.message)
+  check('连续点两次各追加一个脚本', scriptsOf(r.head).length === before + 2, String(scriptsOf(r.head).length))
+}
+
+console.log('\n[14] 液态玻璃：透出背景，但主体素材保持不透明')
+{
+  const g = run(true, { glass: true, glassOpacity: 0.4, glassBlur: 24, glassSaturate: 170 })
+  check('开了玻璃 → 根节点带 dsu-glass', g.root.classList.contains('dsu-glass'), g.root._cls)
+  check('--dsu-glass-alpha 生效', g.root.style.getPropertyValue('--dsu-glass-alpha') === '0.4', g.root.style.getPropertyValue('--dsu-glass-alpha'))
+  check('--dsu-glass-blur 生效', g.root.style.getPropertyValue('--dsu-glass-blur') === '24px', g.root.style.getPropertyValue('--dsu-glass-blur'))
+  check('--dsu-glass-sat 生效', g.root.style.getPropertyValue('--dsu-glass-sat') === '170%', g.root.style.getPropertyValue('--dsu-glass-sat'))
+  check('开玻璃时不立即置透明（会露出 DSH 0.2.1 的启动白底）', g.root.style.background !== 'transparent', String(g.root.style.background))
+  check('源码里透明是在底板 opacity=1 之后才设置', /ui\.plate\.style\.opacity = '1'[\s\S]{0,400}root\.style\.background = 'transparent'/.test(fs.readFileSync(BUNDLE, 'utf8')))
+
+  const off = run(true)
+  check('默认不开启玻璃', !off.root.classList.contains('dsu-glass'), off.root._cls)
+  check('默认不动根节点背景', !off.root.style.background, String(off.root.style.background))
+
+  /* 区间夹取：越界值也要落到合法范围 */
+  const edge = run(true, { glass: true, glassOpacity: 5, glassBlur: 999, glassSaturate: 10 })
+  check('不透明度被夹到 0.95', edge.root.style.getPropertyValue('--dsu-glass-alpha') === '0.95', edge.root.style.getPropertyValue('--dsu-glass-alpha'))
+  check('磨砂被夹到 60px', edge.root.style.getPropertyValue('--dsu-glass-blur') === '60px', edge.root.style.getPropertyValue('--dsu-glass-blur'))
+  check('饱和度被夹到 100%', edge.root.style.getPropertyValue('--dsu-glass-sat') === '100%', edge.root.style.getPropertyValue('--dsu-glass-sat'))
+
+  /* 样式表里必须有真正的磨砂与半透明规则，而不是只改了变量 */
+  const css = fs.readFileSync(fileURLToPath(new URL('../lib/splash.css', import.meta.url)), 'utf8')
+  check('CSS 有 backdrop-filter 磨砂', /backdrop-filter:\s*blur\(var\(--dsu-glass-blur/.test(css))
+  check('CSS 让底板半透明（用 alpha 变量）', /\.dsu-glass \.dsu-plate[\s\S]{0,400}var\(--dsu-glass-alpha/.test(css))
+  check('CSS 让黑幕半透明', /\.dsu-glass \.dsu-black[\s\S]{0,200}rgba\(4, 6, 10/.test(css))
+  check('CSS 有液态高光动画', /@keyframes dsu-glass-drift/.test(css))
+  check('CSS 根节点背景透明', /#dsh-startup-root\.dsu-glass\s*\{\s*background:\s*transparent/.test(css))
+}
+
+console.log('\n[15] 背景模糊：独立图层，不与任何素材绑定')
+{
+  const bgOf = (r2) => r2.root.children.filter((c) => c && c.classList && c.classList.contains('dsu-backdrop'))[0]
+
+  const on = run(true, { glass: true, glassBackdropBlur: 30 })
+  const bg = bgOf(on)
+  check('开玻璃 → 生成 .dsu-backdrop 背景层', !!bg)
+  check('背景层在最底（root 第一个子节点）', on.root.children[0] === bg, on.root.children[0] && on.root.children[0]._cls)
+  check('--dsu-backdrop-blur 按配置生效', on.root.style.getPropertyValue('--dsu-backdrop-blur') === '30px', on.root.style.getPropertyValue('--dsu-backdrop-blur'))
+  check('背景层不带任何壁纸背景（已移除该功能）', !!bg && !String(bg.style.backgroundImage || ''), bg && bg.style.backgroundImage)
+
+  const noGlass = run(true, { glass: false })
+  check('没开玻璃 → 不生成背景层', !bgOf(noGlass))
+
+  const clamp = run(true, { glass: true, glassBackdropBlur: 999 })
+  check('背景模糊被夹到 80px', clamp.root.style.getPropertyValue('--dsu-backdrop-blur') === '80px', clamp.root.style.getPropertyValue('--dsu-backdrop-blur'))
+
+  const css2 = fs.readFileSync(fileURLToPath(new URL('../lib/splash.css', import.meta.url)), 'utf8')
+  check('CSS 有 .dsu-backdrop 图层', /\.dsu-backdrop\s*\{[\s\S]{0,400}backdrop-filter:\s*blur\(var\(--dsu-backdrop-blur/.test(css2))
+  check('CSS 里已没有壁纸层 .dsu-wall', !/\.dsu-wall/.test(css2))
+  check('壁纸路由已移除（splash.js 不再请求）', !fs.readFileSync(BUNDLE, 'utf8').includes('/dsh-startup/wallpaper'))
+}
+
+console.log('\n[16b] 启动期不得露出 DSH 白底（0.2.1 起 body 被强制 #fff）')
+{
+  const hostSrc = fs.readFileSync(fileURLToPath(new URL('../lib/index.js', import.meta.url)), 'utf8')
+  check('critical CSS 把启动期 body 压成黑底', /html\.dsu-lock body\{background-color:#000!important\}/.test(hostSrc))
+  check('覆盖 --dsh-boot-bg 为黑色', /--dsh-boot-bg:#000/.test(hostSrc))
+}
+
+console.log('\n[16] 背景模糊必须真的生效（contain:paint 回归防线）')
+{
+  const css = fs.readFileSync(fileURLToPath(new URL('../lib/splash.css', import.meta.url)), 'utf8')
+  const src = fs.readFileSync(BUNDLE, 'utf8')
+
+  /* contain:paint 会把根节点变成 backdrop 根，backdrop-filter 只能采自己内部 → 表现是「只透不糊」 */
+  const cssNoComment = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  check('CSS 不再有 contain: paint', !/contain:\s*layout\s+paint/.test(cssNoComment), (cssNoComment.match(/contain:[^;]*/g) || []).join(' | '))
+  check('仍然保留 layout style 收敛', /contain:\s*layout style/.test(css))
+
+  /* 兜底：内核不支持 backdrop-filter 时，直接模糊应用本体 */
+  check('有 blurAppBackdrop 兜底', /function blurAppBackdrop\(/.test(src))
+  check('背景模糊直接作用于应用本体，且上限 60（超过就成纯色）', /blurAppBackdrop\(Math\.min\(60, backdropBlur\)\)/.test(src))
+  check('揭幕会还原应用本体的 filter', /function finish\(\)[\s\S]{0,400}restoreAppBackdrop\(\)/.test(src))
+  check('dispose 也会还原', /function dispose\(\)[\s\S]{0,300}restoreAppBackdrop\(\)/.test(src))
+}
+
 console.log('\n============================')
 console.log(`  通过 ${pass} / 失败 ${fail}`)
 console.log('============================\n')

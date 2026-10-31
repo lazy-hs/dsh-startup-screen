@@ -65,7 +65,10 @@
   cursor: default;
   -webkit-user-select: none;
   user-select: none;
-  contain: layout paint style;
+  /* 注意：这里不能写 contain: paint —— 它会把本节点变成 backdrop 根，
+     里面的 backdrop-filter 就只能采到自己内部，页面内容全被排除，
+     表现是「底板透明了但背景一点没糊」。layout/style 不影响采样。 */
+  contain: layout style;
 }
 
 /* 逐字渐显（typeIn）：用不透明度而非截断，居中排版不会左右抖动 */
@@ -1101,4 +1104,79 @@
   #dsh-startup-root .dsu-ret-rot-a,
   #dsh-startup-root .dsu-ret-rot-b { animation: none; }
   #dsh-startup-root .dsu-scanline.dsu-go { animation: none; }
+}
+
+/* ── 液态玻璃（可选图层） ───────────────────────────────────────────────
+   #dsh-startup-root 上加 .dsu-glass 时生效。只把「背景层」（底板 / 黑幕）
+   改成半透明 + 磨砂，文字、线条、鲸鱼标识、读数仍是实心 ——
+   所以稿面主体保留，只是能透过它看到后面的桌面壁纸或窗口。 */
+#dsh-startup-root.dsu-glass { background: transparent !important; }
+
+.dsu-glass .dsu-plate {
+  background:
+    radial-gradient(120% 90% at 78% 12%,
+      rgba(255, 255, 255, calc(0.72 * var(--dsu-glass-alpha, 0.55))) 0%,
+      rgba(255, 255, 255, 0) 58%),
+    linear-gradient(168deg,
+      rgba(252, 251, 249, calc(var(--dsu-glass-alpha, 0.55) + 0.10)) 0%,
+      rgba(249, 247, 243, calc(var(--dsu-glass-alpha, 0.55) + 0.02)) 42%,
+      rgba(246, 243, 239, var(--dsu-glass-alpha, 0.55)) 100%);
+  -webkit-backdrop-filter: blur(var(--dsu-glass-blur, 22px)) saturate(var(--dsu-glass-sat, 150%));
+  backdrop-filter: blur(var(--dsu-glass-blur, 22px)) saturate(var(--dsu-glass-sat, 150%));
+}
+
+.dsu-dark.dsu-glass .dsu-plate {
+  background:
+    radial-gradient(120% 90% at 78% 12%,
+      rgba(255, 255, 255, calc(0.10 * var(--dsu-glass-alpha, 0.55))) 0%,
+      rgba(255, 255, 255, 0) 55%),
+    linear-gradient(168deg,
+      rgba(16, 18, 22, calc(var(--dsu-glass-alpha, 0.55) + 0.05)) 0%,
+      rgba(10, 11, 14, var(--dsu-glass-alpha, 0.55)) 42%,
+      rgba(8, 9, 12, var(--dsu-glass-alpha, 0.55)) 100%);
+}
+
+.dsu-glass .dsu-black {
+  background: rgba(4, 6, 10, calc(var(--dsu-glass-alpha, 0.55) * 0.96)) !important;
+  -webkit-backdrop-filter: blur(var(--dsu-glass-blur, 22px)) saturate(var(--dsu-glass-sat, 150%));
+  backdrop-filter: blur(var(--dsu-glass-blur, 22px)) saturate(var(--dsu-glass-sat, 150%));
+}
+
+/* 液态感：一道缓慢漂移的斜向高光，叠在玻璃表面而不是文字上 */
+.dsu-glass::after {
+  content: '';
+  position: fixed;
+  inset: -12%;
+  z-index: 60;
+  pointer-events: none;
+  background: linear-gradient(112deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0) 34%,
+    rgba(255, 255, 255, 0) 66%,
+    rgba(255, 255, 255, 0.09) 100%);
+  mix-blend-mode: screen;
+  opacity: calc(0.25 + 0.55 * var(--dsu-glass-alpha, 0.55));
+  animation: dsu-glass-drift 12s ease-in-out infinite alternate;
+}
+
+@keyframes dsu-glass-drift {
+  from { transform: translate3d(-2.4%, -1.2%, 0) scale(1.04); }
+  to   { transform: translate3d(2.4%, 1.2%, 0) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsu-glass::after { animation: none; }
+}
+
+/* ── 背景层（液态玻璃的「背景模糊」） ────────────────────────────────
+   独立一层：自身透明，只带 backdrop-filter，
+   专门糊「玻璃背后的画面」，与底板/黑幕自身的磨砂(--dsu-glass-blur)互不影响。 */
+.dsu-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+  -webkit-backdrop-filter: blur(var(--dsu-backdrop-blur, 22px)) saturate(var(--dsu-glass-sat, 150%));
+  backdrop-filter: blur(var(--dsu-backdrop-blur, 22px)) saturate(var(--dsu-glass-sat, 150%));
 }

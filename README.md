@@ -5,6 +5,9 @@ DeepSeek Harness 的启动界面与启动动画插件。
 黑幕 DeepSeek 标识 → 过曝洗白 → 暖白「技术档案」底板 → 五步交互式访问授权 →
 色散故障揭幕。
 
+> **已在插件市场上线** —— 在 DSH 的 **设置 →「插件市场」** 搜索 `dsh-startup-screen` 即可一键安装。
+> 目录页：[awesome-dsh-plugin.com/p/6shenhonghong9/dsh-startup-screen](https://awesome-dsh-plugin.com/p/6shenhonghong9/dsh-startup-screen/)
+
 ---
 
 ## 效果预览
@@ -17,6 +20,16 @@ DeepSeek Harness 的启动界面与启动动画插件。
 > 两套配色的版式、文字位置、进度条与准星完全一致，只换底色与文字反相。
 
 ---
+
+## 本次新增功能（1.3.0）
+
+**液态玻璃与透明度**　底板、黑幕从实心改成半透明磨砂玻璃：整窗重磨砂，文字、线条、准星保持锐利。
+四个独立参数随调随生效——玻璃不透明度（15%–95%）、磨砂模糊（0–60 px）、玻璃饱和度（100%–200%）、
+背景模糊（0–80 px，单独糊玻璃背后的画面）。出厂默认即开启，关掉立刻回到实心底板。
+
+> 透明度这一功能由 [Yuanqs-pine](https://github.com/Yuanqs-pine) 提出并贡献实现思路。
+
+**配套的观感调整**　底板暖白渐变整体提亮一档；深色主题下限制有效模糊上限，避免整片发灰。
 
 ## 功能
 
@@ -54,18 +67,25 @@ DeepSeek Harness 的启动界面与启动动画插件。
 
 ## 安装
 
+### 插件市场（推荐）
+
+DSH **设置 →「插件市场」** → 搜索 `dsh-startup-screen` → 点「安装」。
+目录页：[awesome-dsh-plugin.com/p/6shenhonghong9/dsh-startup-screen](https://awesome-dsh-plugin.com/p/6shenhonghong9/dsh-startup-screen/)
+
+### 本地包安装
+
 ```bash
-dsh plugin --profile web add ./dsh-startup-screen-1.2.0.tgz
+dsh plugin --profile web add ./dsh-startup-screen-1.3.0.tgz
 ```
 
 桌面端（DeepSeek Harness Desktop）同样支持，profile 换成 `desktop`：
 
 ```bash
-dsh plugin --profile desktop add ./dsh-startup-screen-1.2.0.tgz
+dsh plugin --profile desktop add ./dsh-startup-screen-1.3.0.tgz
 ```
 
 > 部分 DSH 版本会拒绝在终端里操作 `desktop` profile（提示 managed exclusively by the
-> Electron application），此时请用桌面端的「插件」页安装，或按 `DESKTOP.md` 走 junction。
+> Electron application），此时改用桌面端的「插件」页安装即可。
 
 Windows 上也可以解压 release 压缩包后**双击「安装.cmd」**，脚本会自动识别
 `web` / `desktop` 两个 profile 并逐个安装。
@@ -100,6 +120,11 @@ dsh plugin --profile web remove dsh-startup-screen
 | 启用 | 开 | 总开关，关掉就完全不播 |
 | 显示模式 | 每次会话 | `每次会话` 一个浏览器会话播一次 / `总是` 每次刷新都播 / `每天` 一天一次 |
 | 主题 | 暖白 | `暖白` 参考片原色 / `暗色` 暗底板 |
+| 液态玻璃 | **开** | 底板与黑幕改成半透明磨砂玻璃：整窗重磨砂、文字保持锐利；关掉即回到实心底板 |
+| 玻璃不透明度 | 75% | 15% – 95%，越低越透；0.75 时背后是暖白模糊而不是灰 |
+| 磨砂模糊 | 22 px | 0 – 60 px，玻璃自身的磨砂 |
+| 玻璃饱和度 | 160% | 100% – 200%，越高越通透 |
+| 背景模糊 | 28 px | 0 – 80 px，直接糊应用本体；20–30 px 最像照片，超过 60 会糊成纯色 |
 | 速度 | 1× | 整段动画的快慢，0.35 – 3 倍 |
 | 要求确认 | 开 | 第 1、2 步是否等你点按钮才继续 |
 | 允许跳过 | 开 | 是否显示右上角跳过按钮、是否响应 Esc |

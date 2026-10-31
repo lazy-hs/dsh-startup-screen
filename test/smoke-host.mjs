@@ -184,6 +184,31 @@ check('非法颜色回落到默认橙', cfg.config.accent === '#ff7500', cfg.con
 r = await call('exact /dsh-startup/config', 'POST', JSON.stringify({ action: 'reset' }))
 check('reset 恢复默认', JSON.parse(r.body).config.identity === 'JOYCE MOORE')
 
+/* 液态玻璃：默认关闭，三个数值字段都要夹在合法区间 */
+cfg = JSON.parse((await call('exact /dsh-startup/config')).body)
+check('液态玻璃默认开启（本版默认观感）', cfg.config.glass === true, String(cfg.config.glass))
+check('玻璃不透明度默认 0.75', cfg.config.glassOpacity === 0.75, String(cfg.config.glassOpacity))
+check('磨砂默认 22px', cfg.config.glassBlur === 22, String(cfg.config.glassBlur))
+check('饱和度默认 160%', cfg.config.glassSaturate === 160, String(cfg.config.glassSaturate))
+check('背景模糊默认 28px（独立参数）', cfg.config.glassBackdropBlur === 28, String(cfg.config.glassBackdropBlur))
+check('不再有 glassWallpaper 字段', cfg.config.glassWallpaper === undefined)
+
+r = await call('exact /dsh-startup/config', 'POST', JSON.stringify({ patch: { glass: true, glassOpacity: 1.5, glassBlur: 99, glassSaturate: 300, glassBackdropBlur: 999 } }))
+cfg = JSON.parse(r.body)
+check('开玻璃后写盘成功', cfg.config.glass === true, String(cfg.config.glass))
+check('不透明度被夹到上限 0.95', cfg.config.glassOpacity === 0.95, String(cfg.config.glassOpacity))
+check('磨砂被夹到上限 60', cfg.config.glassBlur === 60, String(cfg.config.glassBlur))
+check('饱和度被夹到上限 200', cfg.config.glassSaturate === 200, String(cfg.config.glassSaturate))
+check('背景模糊被夹到上限 80', cfg.config.glassBackdropBlur === 80, String(cfg.config.glassBackdropBlur))
+
+r = await call('exact /dsh-startup/config', 'POST', JSON.stringify({ patch: { glassOpacity: 0.01, glassBlur: -5, glassSaturate: 10, glassBackdropBlur: -9 } }))
+cfg = JSON.parse(r.body)
+check('不透明度被夹到下限 0.15', cfg.config.glassOpacity === 0.15, String(cfg.config.glassOpacity))
+check('磨砂被夹到下限 0', cfg.config.glassBlur === 0, String(cfg.config.glassBlur))
+check('饱和度被夹到下限 100', cfg.config.glassSaturate === 100, String(cfg.config.glassSaturate))
+check('背景模糊被夹到下限 0', cfg.config.glassBackdropBlur === 0, String(cfg.config.glassBackdropBlur))
+r = await call('exact /dsh-startup/config', 'POST', JSON.stringify({ action: 'reset' }))
+
 r = await call('exact /dsh-startup/config', 'POST', '{ not json')
 check('非法 JSON 返回 400', r.statusCode === 400, String(r.statusCode))
 r = await call('exact /dsh-startup/config', 'DELETE')

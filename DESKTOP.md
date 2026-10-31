@@ -19,7 +19,7 @@
 ```bash
 # 1) 先完全退出 DeepSeek Harness Desktop（进程不要留着）
 # 2) 再装
-dsh plugin --profile desktop add ./dsh-startup-screen-1.2.0.tgz
+dsh plugin --profile desktop add ./dsh-startup-screen-1.3.0.tgz
 # 3) 重新打开桌面端
 ```
 
@@ -119,11 +119,11 @@ then fully quit it before running dsh plugin --profile desktop.
 
 | 验证项 | 状态 |
 |---|---|
-| 四套冒烟测试（255 项断言） | ✅ 通过 |
+| 四套冒烟测试（336 项断言） | ✅ 通过 |
 | 真实 `dist/index.html` 上的注入产物 | ✅ 通过（隔离环境实测） |
 | 隔离 DSH 实例的真实 HTTP 全链路（index 注入 / 三条路由 / 7 段音频素材 / 配置读写 / 401 信任栅栏） | ✅ 通过 |
 | 没有 `webServer` 的降级路径不抛异常 | ✅ 通过 |
-| 浏览器半侧自举逻辑（DOM stub 跑真代码） | ✅ 通过 44 项断言 |
+| 浏览器半侧自举逻辑（DOM stub 跑真代码） | ✅ 通过 65 项断言 |
 | **桌面端实机**（真实 Electron 里看到完整动画） | ✅ **通过** |
 
 桌面端实测（DeepSeek Harness Desktop，内核 `0.2.0-rc.2`）：
@@ -168,7 +168,7 @@ window.__DSH_STARTUP_BOOT__   // 'index' = Host 的 tapIndex 注入；'client' =
 ## 五、测试
 
 ```bash
-npm test     # host + splash + client + desktop 四套，255 项断言
+npm test     # host + splash + client + desktop 四套，336 项断言
 ```
 
 `test/smoke-desktop-boot.mjs` 就是桌面端自举那 47 项断言的所在：

@@ -233,6 +233,64 @@ console.log('\n[7] 面板与 README 对齐（音效来源 / 故障色 / 单一�
   check('「开口前留白」上限 1200ms（与 Host 一致）', ranges.some((r) => r.max === 1200), ranges.map((r) => r.max).join(','))
 }
 
+console.log('\n[8] 「立即预览」入口必须永远有反应（1.2.1 回归防线）')
+{
+  check('preview 里 catch 了 replay 抛错', /try \{ api\.replay\(\) \} catch/.test(code))
+  check('replay 之后有兜底刷新（1.2 秒看根节点 / RUNNING）', /__DSH_STARTUP_RUNNING__/.test(code) && /setTimeout\(function \(\)/.test(code))
+  check('重挂失败时退回 location.reload()', /window\.location\.reload\(\)/.test(code))
+}
+
+console.log('\n[9] 液态玻璃面板控件')
+{
+  const t = renderPanel()
+  const labels = []
+  const collect = (n) => {
+    if (!n || typeof n !== 'object') return
+    if (n.props && typeof n.props.label === 'string') labels.push(n.props.label)
+    if (n.props && typeof n.props.children === 'string') labels.push(n.props.children)
+    const kids = n.props && n.props.children
+    if (Array.isArray(kids)) kids.forEach(collect)
+    else if (kids && typeof kids === 'object') collect(kids)
+  }
+  collect(t)
+  check('有「液态玻璃」开关', labels.some((l) => l.indexOf('液态玻璃') !== -1), labels.filter((l) => l.indexOf('玻璃') !== -1).join('|'))
+  check('源码里三个玻璃滑条都在', /玻璃不透明度/.test(code) && /磨砂模糊/.test(code) && /玻璃饱和度/.test(code))
+  check('「透出桌面壁纸」已删除', !/透出桌面壁纸/.test(code) && !/glassWallpaper/.test(code))
+  check('「背景模糊」独立存在（不依赖壁纸）', /背景模糊/.test(code) && /glassBackdropBlur/.test(code))
+  check('玻璃参数有 FALLBACK 兜底', /glass: true, glassOpacity: 0\.75, glassBlur: 22, glassSaturate: 160/.test(code))
+}
+
+console.log('\n[10] 设置页分类目录（点击平滑滚动）')
+{
+  check('有目录容器 .__ss_toc', /__ss_toc/.test(code))
+  check('目录项是按钮并可点击', /__ss_tocItem/.test(code) && /onClick: function \(\) \{ jumpTo\(/.test(code))
+  check('滚动用 scrollIntoView + smooth', /scrollIntoView\(\{ block: 'start', behavior: 'smooth' \}\)/.test(code))
+  const groups = ['play', 'identity', 'interact', 'voice', 'visual', 'text']
+  check('六个分类都有锚点分组名', groups.every((g) => code.indexOf("'" + g + "'") !== -1), groups.join(','))
+  check('分组节点都挂了 id 锚点', (code.match(/id: '__ss_group_/g) || []).length === 6, String((code.match(/id: '__ss_group_/g) || []).length))
+
+  const t2 = renderPanel()
+  const ids = []
+  const walkId = (n) => {
+    if (!n || typeof n !== 'object') return
+    if (n.props && typeof n.props.id === 'string') ids.push(n.props.id)
+    const kids = n.props && n.props.children
+    if (Array.isArray(kids)) kids.forEach(walkId)
+    else if (kids && typeof kids === 'object') walkId(kids)
+  }
+  walkId(t2)
+  check('渲染出的面板里真的有六个锚点 id', groups.every((g) => ids.indexOf('__ss_group_' + g) !== -1), ids.join(','))
+
+  /* 底部操作条固定在视口内：滚到哪都能点到「保存」 */
+  check('操作条用了 sticky 固定', /__ss_actionsSticky/.test(code) && /position:sticky/.test(code))
+  check('sticky 贴在底部', /__ss_actionsSticky\{[^}]*bottom:/.test(code))
+  check('有未保存状态提示', /__ss_dirty/.test(code) && /未保存/.test(code))
+  check('「立即预览」也在底部操作条里（和保存并排）', /__ss_actionsSticky[\s\S]{0,400}立即预览/.test(code))
+  check('预览说明也并进操作条', /__ss_barHint/.test(code) && /预览会按当前「已保存」的配置重播一次/.test(code))
+  check('配置文件路径也在操作条里', /__ss_barFile/.test(code) && /配置文件：/.test(code))
+  check('改动置 dirty、保存/恢复/放弃都会清除', /setDirty\(true\)/.test(code) && (code.match(/setDirty\(false\)/g) || []).length >= 3, String((code.match(/setDirty\(false\)/g) || []).length))
+}
+
 console.log('\n============================')
 console.log(`  通过 ${pass} / 失败 ${fail}`)
 console.log('============================\n')
